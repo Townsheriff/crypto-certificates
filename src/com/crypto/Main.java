@@ -1,7 +1,6 @@
 package com.crypto;
 
 import java.util.Arrays;
-import java.util.Calendar;
 
 /**
  * enable asserts - "-ea" https://docs.oracle.com/cd/E19683-01/806-7930/assert-4/index.html
@@ -18,142 +17,238 @@ public class Main {
     private static final int KEY_SIZE = 2048;
     private static final int VALIDITY = 1096 * 24 * 60 * 60;
 
-    private static final String CERTIFICATE_PATH = "certificate.cer";
-    private static final String PRIVATE_KEY_PATH = "privateKey";
-    private static final String PUBLIC_KEY_PATH = "publicKey.pub";
+    private static final String CREATE_ACTION = "create";
+    private static final String VERIFY_ACTION = "verify";
+    private static final String ENCRYPT_ACTION = "encrypt";
+    private static final String DECRYPT_ACTION = "decrypt";
 
     public static void main(String[] args) {
-        CryptoCertificateFactory certificateFactory = new CryptoCertificateFactory(
+        CryptoFactory certificateFactory = new CryptoFactory(
                 KEY_ALGORITHM,
                 KEY_SIZE,
                 SIGNATURE_ALGORITHM,
                 VALIDITY
         );
 
-        CryptoCertificateOperations operations = new CryptoCertificateOperations(
+        CryptoOperations operations = new CryptoOperations(
                 SIGNATURE_ALGORITHM,
                 KEY_ALGORITHM,
                 CERTIFICATE_TYPE
         );
 
-
-        // CREATES SELF SIGNED CERTIFICATE AND WRITES IT TO DISK
-        CryptoCertificate selfSignedCert = certificateFactory.createSelfSigned(
-                "Arturs",
-                "crypto",
-                "University of Latvia",
-                "Riga",
-                "Latvia",
-                "Latvia"
-        );
-
-        if (selfSignedCert == null) {
-            log("Failed to create self signed certificate");
+        if (args.length < 1) {
+            printHelp();
             return;
         }
 
-        boolean isSavedToDisk = selfSignedCert.saveCertificate(CERTIFICATE_PATH);
+        Main main = new Main(certificateFactory, operations);
 
-        if (!isSavedToDisk) {
-            log("Failed to save certificate to disk");
+        String[] mainArgs = new String[0];
+        if (args.length > 1) { // throws error when args size is 1
+            mainArgs = Arrays.copyOfRange(args, 1, args.length);
         }
 
-        isSavedToDisk = selfSignedCert.savePrivateKey(PRIVATE_KEY_PATH);
-
-        if (!isSavedToDisk) {
-            log("Failed to save private key to disk");
-        }
-
-
-        isSavedToDisk = selfSignedCert.savePublicKey(PUBLIC_KEY_PATH);
-
-        if (!isSavedToDisk) {
-            log("Failed to save public key to disk");
-        }
-
-        // READS SAME CERTIFICATE FROM DISK AND RECREATES CERTIFICATE OBJECT
-        CryptoCertificate certFromDisk = certificateFactory.loadFromFile(
-                CERTIFICATE_PATH,
-                PUBLIC_KEY_PATH,
-                PRIVATE_KEY_PATH
-        );
-
-        if (certFromDisk == null) {
-            log("Failed to load certificate from disk");
-        }
-
-        assert certFromDisk != null;
-
-        assert Arrays.equals(selfSignedCert.getEncCertificate(), certFromDisk.getEncCertificate());
-        assert Arrays.equals(selfSignedCert.getEncPublicKey(), certFromDisk.getEncPublicKey());
-        assert Arrays.equals(selfSignedCert.getEncPrivateKey(), certFromDisk.getEncPrivateKey());
-
-        // VALIDATES THAT SIGNATURE IS VALID
-        boolean isValid = operations.isSignatureValid(certFromDisk);
-
-        if (!isValid) {
-            log("Disk certificate signature is not valid");
-        }
-
-        isValid = operations.isSignatureValid(selfSignedCert);
-
-        if (!isValid) {
-            log("Self signed certificate signature is not valid");
-        }
-
-
-        // VALIDATES THAT SIGNATURE IS INVALID
-        CryptoCertificate selfSignedCert2 = certificateFactory.createSelfSigned(
-                "Arturs",
-                "crypto",
-                "University of Latvia",
-                "Riga",
-                "Latvia",
-                "Latvia"
-        );
-
-        CryptoCertificate invalidCertificate = certificateFactory.loadFromBytes(
-                selfSignedCert.getEncCertificate(),
-                selfSignedCert2.getEncPublicKey(),
-                selfSignedCert.getEncPrivateKey()
-        );
-
-        isValid = operations.isSignatureValid(invalidCertificate);
-
-        if (isValid) {
-            log("Invalid certificate signature is valid");
-        }
-
-
-        // VALIDATES PUBLIC KEY IN CERTIFICATE
-        isValid = operations.isCorrectPublicKey(selfSignedCert);
-
-        if (!isValid) {
-            log("Correct certificate does not contain valid public key");
-        }
-
-        isValid = operations.isCorrectPublicKey(invalidCertificate);
-
-        if (isValid) {
-            log("Invalid certificate contains valid public key");
-        }
-
-
-        // VALIDATES NAME IN CERTIFICATE
-        isValid = operations.isRootCertificate(certFromDisk);
-
-        if (!isValid) {
-            log("Contains invalid name");
+        switch (args[0]) {
+            case CREATE_ACTION:
+                main.createCertificate(mainArgs);
+                return;
+            case VERIFY_ACTION:
+                main.verifyCertificate(mainArgs);
+                return;
+            case ENCRYPT_ACTION:
+                main.encryptMessage(mainArgs);
+                return;
+            case DECRYPT_ACTION:
+                main.decryptMessage(mainArgs);
+                return;
+            default:
+                printHelp();
         }
     }
 
-    private static void log(String message) {
-        Calendar calendar = Calendar.getInstance();
+    private static void printHelp() {
+        System.out.println("Allowed commands:");
+        System.out.println("app create [option [, ...]] - to create a self signed certificate");
+        System.out.println("app verify [option [, ...]] - to verify a certificate");
+        System.out.println("app encrypt [option [, ...]] - to encrypt a file with private key");
+        System.out.println("app decrypt [option [, ...]] - to decrypt a file with public key");
+    }
 
-        String time = calendar.get(Calendar.HOUR) + ":" +
-                calendar.get(Calendar.MINUTE) + ":" +
-                calendar.get(Calendar.SECOND);
+    private final CryptoFactory certificateFactory;
+    private final CryptoOperations cryptoOperations;
 
-        System.out.println(time + ": " + message);
+    public Main(CryptoFactory certificateFactory, CryptoOperations cryptoOperations) {
+        this.certificateFactory = certificateFactory;
+        this.cryptoOperations = cryptoOperations;
+    }
+
+    private void createCertificate(String[] args) {
+        if (args.length < 4) {
+            System.out.println("To create certificate required 4 arguments:");
+            System.out.println("1 - output path for private key");
+            System.out.println("2 - output path for public key");
+            System.out.println("3 - output path for certificate");
+            System.out.println("4 - input path for certificate options");
+            return;
+        }
+
+        String privateKeyPath = args[0];
+        String publicKeyPath = args[1];
+        String certificatePath = args[2];
+        String optionsPath = args[3];
+
+        String certificateOptions = FileSystem.readFileAsString(optionsPath);
+
+        if (certificateOptions == null) {
+            System.out.println("Certificate options are not correctly provided");
+            return;
+        }
+
+        String[] certificateArrayOptions = certificateOptions.split("\n");
+
+        if (certificateArrayOptions.length < 5) {
+            System.out.println("Certificate options require 6 lines in a file");
+            return;
+        }
+
+        CryptoContainer container = certificateFactory.createSelfSignedCertificate(
+                certificateArrayOptions[0], // name
+                certificateArrayOptions[1], // orgUnit
+                certificateArrayOptions[2], // org
+                certificateArrayOptions[3], // city
+                certificateArrayOptions[4], // state
+                certificateArrayOptions[5]  // country
+        );
+
+        if (container == null) {
+            System.out.println("Failed to create self signed certificate");
+            return;
+        }
+
+        boolean isSavedToDisk = container.saveCertificate(certificatePath);
+
+        if (!isSavedToDisk) {
+            System.out.println("Failed to save certificate to disk");
+        }
+
+        isSavedToDisk = container.savePrivateKey(privateKeyPath);
+
+        if (!isSavedToDisk) {
+            System.out.println("Failed to save private key to disk");
+        }
+
+
+        isSavedToDisk = container.savePublicKey(publicKeyPath);
+
+        if (!isSavedToDisk) {
+            System.out.println("Failed to save public key to disk");
+        }
+    }
+
+    private void verifyCertificate(String[] args) {
+        if (args.length < 3) {
+            System.out.println("To verify certificate required 3 arguments:");
+            System.out.println("1 - input path to private key");
+            System.out.println("2 - input path to public key");
+            System.out.println("3 - input path to certificate");
+            return;
+        }
+
+        CryptoContainer container = certificateFactory.loadFromFile(
+                args[0], // private key path
+                args[1], // public key path
+                args[2]  // certificate path
+        );
+
+        if (container == null) {
+            System.out.println("Failed to load certificate from disk");
+        }
+
+        boolean isValid = cryptoOperations.isSignatureValid(container);
+
+        if (isValid) {
+            System.out.println("Certificate signature is valid");
+        } else {
+            System.out.println("Certificate signature is NOT valid");
+        }
+    }
+
+    private void encryptMessage(String[] args) {
+        if (args.length < 3) {
+            System.out.println("To encrypt certificate required 2 arguments:");
+            System.out.println("1 - input path to private key");
+            System.out.println("2 - input path to certificate");
+            System.out.println("3 - input path for file to encrypt");
+            System.out.println("4 - output path for encrypted file");
+            return;
+        }
+
+        CryptoContainer container = certificateFactory.loadPrivateKeyFromFile(
+                args[0] // private key path
+        );
+
+        byte[] inputFile = FileSystem.readFile(args[1]);
+
+        if (inputFile == null) {
+            System.out.println("Failed to target file from disk");
+            return;
+        }
+
+        if (container == null) {
+            System.out.println("Failed to load certificate from disk");
+            return;
+        }
+
+        byte[] outputFile = cryptoOperations.encrypt(container.getEncPrivateKey(), inputFile);
+
+        if (outputFile == null) {
+            System.out.println("Failed to encrypt file");
+            return;
+        }
+
+        boolean isSavedToDisk = FileSystem.writeFile(args[2], outputFile);
+
+        if (!isSavedToDisk) {
+            System.out.println("Failed saving file to disk");
+        }
+    }
+
+    private void decryptMessage(String[] args) {
+        if (args.length < 3) {
+            System.out.println("To decrypt certificate required 2 arguments:");
+            System.out.println("1 - input path to public key");
+            System.out.println("2 - input path for encrypted file");
+            System.out.println("3 - output path for decrypted file");
+            return;
+        }
+
+        CryptoContainer container = certificateFactory.loadCertificateFromFile(
+                args[0] // public key path
+        );
+
+        byte[] inputFile = FileSystem.readFile(args[1]);
+
+        if (inputFile == null) {
+            System.out.println("Failed to target file from disk");
+            return;
+        }
+
+        if (container == null) {
+            System.out.println("Failed to load certificate from disk");
+            return;
+        }
+
+        byte[] outputFile = cryptoOperations.decrypt(container.getEncCertificate(), inputFile);
+
+        if (outputFile == null) {
+            System.out.println("Failed to encrypt file");
+            return;
+        }
+
+        boolean isSavedToDisk = FileSystem.writeFile(args[2], outputFile);
+
+        if (!isSavedToDisk) {
+            System.out.println("Failed saving file to disk");
+        }
     }
 }

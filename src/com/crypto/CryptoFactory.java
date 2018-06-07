@@ -6,21 +6,21 @@ import sun.security.x509.X500Name;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 
-public class CryptoCertificateFactory {
+public class CryptoFactory {
     private final String keyType;
     private final String algorithm;
     private final int keySize;
     private final int validity;
 
 
-    public CryptoCertificateFactory(String keyType, int keySize, String algorithm, int validity) {
+    public CryptoFactory(String keyType, int keySize, String algorithm, int validity) {
         this.keyType = keyType;
         this.keySize = keySize;
         this.algorithm = algorithm;
         this.validity = validity;
     }
 
-    public CryptoCertificate createSelfSigned(
+    public CryptoContainer createSelfSignedCertificate(
             String name,
             String orgUnit,
             String org,
@@ -28,7 +28,7 @@ public class CryptoCertificateFactory {
             String state,
             String country
     ) {
-        CryptoCertificate certificate = null;
+        CryptoContainer container = null;
 
         try {
             CertAndKeyGen generator = new CertAndKeyGen(keyType, algorithm);
@@ -42,35 +42,49 @@ public class CryptoCertificateFactory {
             byte[] encPrivateKey = generator.getPrivateKey().getEncoded();
             byte[] encCertificate = x509Certificate.getEncoded();
 
-            certificate = new CryptoCertificate(encCertificate, encPublicKey, encPrivateKey);
+            container = new CryptoContainer(encCertificate, encPublicKey, encPrivateKey);
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-        return certificate;
+        return container;
     }
 
-    public CryptoCertificate loadFromFile(String certPath, String publicKeyPath, String privateKeyPath) {
-        CryptoCertificate certificate = null;
+    public CryptoContainer loadFromFile(String privateKeyPath, String publicKeyPath, String certPath) {
+        CryptoContainer container = null;
 
         byte[] encPublicKey = FileSystem.readFile(publicKeyPath);
         byte[] encPrivateKey = FileSystem.readFile(privateKeyPath);
         byte[] encCertificate = FileSystem.readFile(certPath);
 
         if (encCertificate != null && encPrivateKey != null && encPublicKey != null) {
-            certificate = new CryptoCertificate(encCertificate, encPublicKey, encPrivateKey);
+            container = new CryptoContainer(encCertificate, encPublicKey, encPrivateKey);
         }
 
-        return certificate;
+        return container;
     }
 
-    public CryptoCertificate loadFromBytes(byte[] encCertificate, byte[] encPublicKey, byte[] encPrivateKey) {
-        CryptoCertificate certificate = null;
+    public CryptoContainer loadPrivateKeyFromFile(String privateKeyPath) {
+        CryptoContainer container = null;
 
-        if (encCertificate != null && encPublicKey != null && encPrivateKey != null) {
-            certificate = new CryptoCertificate(encCertificate, encPublicKey, encPrivateKey);
+        byte[] encPrivateKey = FileSystem.readFile(privateKeyPath);
+
+        if (encPrivateKey != null) {
+            container = new CryptoContainer(null, null, encPrivateKey);
         }
 
-        return certificate;
+        return container;
+    }
+
+    public CryptoContainer loadCertificateFromFile(String certPath) {
+        CryptoContainer container = null;
+
+        byte[] encCertificate = FileSystem.readFile(certPath);
+
+        if (encCertificate != null) {
+            container = new CryptoContainer(encCertificate, null, null);
+        }
+
+        return container;
     }
 }

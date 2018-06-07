@@ -1,6 +1,7 @@
 package com.crypto;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 
 public class FileSystem {
     public static boolean writeFile(String path, byte[] data) {
@@ -34,6 +35,16 @@ public class FileSystem {
             e.printStackTrace();
             return null;
         }
+    }
+
+    public static String readFileAsString(String path) {
+        byte[] content = FileSystem.readFile(path);
+
+        if (content == null) {
+            return null;
+        }
+
+        return new String(content, StandardCharsets.UTF_8);
     }
 
 

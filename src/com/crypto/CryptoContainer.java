@@ -1,11 +1,11 @@
 package com.crypto;
 
-public class CryptoCertificate {
+public class CryptoContainer {
     private final byte[] certificate;
     private final byte[] publicKey;
     private final byte[] privateKey;
 
-    public CryptoCertificate(byte[] certificate, byte[] publicKey, byte[] privateKey) {
+    public CryptoContainer(byte[] certificate, byte[] publicKey, byte[] privateKey) {
         this.certificate = certificate;
         this.publicKey = publicKey;
         this.privateKey = privateKey;
